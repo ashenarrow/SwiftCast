@@ -1,0 +1,10 @@
+web/node_modules/
+web/dist/
+ios/Pods/
+ios/SwiftCast.xcodeproj/
+ios/SwiftCast.xcworkspace/
+ios/Podfile.lock
+DerivedData/
+*.xcuserstate
+*.xcuserdata/
+

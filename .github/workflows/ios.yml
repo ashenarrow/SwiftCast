@@ -1,0 +1,81 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - "web/**"
+      - ".github/workflows/ios.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - "web/**"
+      - ".github/workflows/ios.yml"
+
+jobs:
+  build:
+    name: Build iOS app and broadcast extension
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build Chrome client
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install iOS tooling
+        run: |
+          brew update
+          brew install xcodegen
+          sudo gem install cocoapods --no-document
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install --repo-update
+
+      - name: Build unsigned Debug app
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -workspace SwiftCast.xcworkspace \
+            -scheme SwiftCast \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-diagnostics
+          path: |
+            ios/Pods/Manifest.lock
+            ios/SwiftCast.xcodeproj
+            ios/SwiftCast.xcworkspace
+          if-no-files-found: ignore
+

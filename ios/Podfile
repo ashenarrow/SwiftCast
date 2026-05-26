@@ -1,0 +1,12 @@
+platform :ios, '15.0'
+use_frameworks!
+
+workspace 'SwiftCast'
+
+target 'SwiftCast' do
+end
+
+target 'SwiftCastBroadcast' do
+  pod 'GoogleWebRTC', '~> 1.1'
+end
+
