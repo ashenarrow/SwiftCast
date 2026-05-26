@@ -115,7 +115,7 @@ final class WebRTCStreamer: NSObject {
         let candidates = store.browserIce
         guard browserIceCursor < candidates.count else { return }
         for record in candidates[browserIceCursor...] {
-            peerConnection.addIceCandidate(RTCIceCandidate(sdp: record.candidate, sdpMLineIndex: record.sdpMLineIndex, sdpMid: record.sdpMid))
+            peerConnection.add(RTCIceCandidate(sdp: record.candidate, sdpMLineIndex: record.sdpMLineIndex, sdpMid: record.sdpMid))
         }
         browserIceCursor = candidates.count
     }
