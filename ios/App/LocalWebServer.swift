@@ -145,10 +145,12 @@ final class LocalWebServer {
         var imported: CFArray?
         guard SecPKCS12Import(data as CFData, importOptions as CFDictionary, &imported) == errSecSuccess,
               let first = (imported as? [[String: Any]])?.first,
-              let identity = first[kSecImportItemIdentity as String] as? SecIdentity,
-              let secIdentity = sec_identity_create(identity) else {
+              let identityValue = first[kSecImportItemIdentity as String] else {
             return nil
         }
+
+        let identity = identityValue as! SecIdentity
+        guard let secIdentity = sec_identity_create(identity) else { return nil }
 
         let options = NWProtocolTLS.Options()
         sec_protocol_options_set_local_identity(options.securityProtocolOptions, secIdentity)

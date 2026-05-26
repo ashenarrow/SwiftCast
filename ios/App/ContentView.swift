@@ -5,7 +5,7 @@ struct ContentView: View {
     @EnvironmentObject private var model: SwiftCastModel
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     header
@@ -18,6 +18,7 @@ struct ContentView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("SwiftCast")
         }
+        .navigationViewStyle(.stack)
     }
 
     private var header: some View {
