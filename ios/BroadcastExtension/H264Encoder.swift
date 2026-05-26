@@ -77,18 +77,12 @@ final class H264Encoder {
         guard session == nil else { return }
 
         var newSession: VTCompressionSession?
-        let encoderSpecification: CFDictionary = [
-            kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder: kCFBooleanTrue as Any,
-            kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder: kCFBooleanTrue as Any,
-            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue as Any
-        ] as CFDictionary
-
         let status = VTCompressionSessionCreate(
             allocator: kCFAllocatorDefault,
             width: Int32(settings.width),
             height: Int32(settings.height),
             codecType: kCMVideoCodecType_H264,
-            encoderSpecification: encoderSpecification,
+            encoderSpecification: Self.hardwareEncoderSpecification,
             imageBufferAttributes: nil,
             compressedDataAllocator: nil,
             outputCallback: H264Encoder.outputCallback,
@@ -106,6 +100,22 @@ final class H264Encoder {
         VTSessionSetProperty(newSession, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: NSNumber(value: settings.fps))
         VTCompressionSessionPrepareToEncodeFrames(newSession)
         makePixelBufferPool()
+    }
+
+    private static var hardwareEncoderSpecification: CFDictionary {
+        var specification: [CFString: Any] = [
+            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue as Any
+        ]
+
+        if #available(iOS 17.4, *) {
+            specification[kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder] = kCFBooleanTrue as Any
+            specification[kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder] = kCFBooleanTrue as Any
+        } else {
+            specification["EnableHardwareAcceleratedVideoEncoder" as CFString] = kCFBooleanTrue as Any
+            specification["RequireHardwareAcceleratedVideoEncoder" as CFString] = kCFBooleanTrue as Any
+        }
+
+        return specification as CFDictionary
     }
 
     private func applyMutableProperties() {
