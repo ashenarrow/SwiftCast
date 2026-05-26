@@ -14,11 +14,8 @@ final class WebRTCStreamer: NSObject {
     private let queue = DispatchQueue(label: "swiftcast.webrtc.streamer")
 
     init(store: AppGroupStore) {
-        RTCInitializeSSL()
         self.store = store
-        let encoderFactory = RTCDefaultVideoEncoderFactory()
-        let decoderFactory = RTCDefaultVideoDecoderFactory()
-        self.factory = RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
+        self.factory = RTCPeerConnectionFactory()
         super.init()
     }
 
@@ -35,7 +32,6 @@ final class WebRTCStreamer: NSObject {
         videoChannel = nil
         audioChannel = nil
         controlChannel = nil
-        RTCCleanupSSL()
     }
 
     func takeKeyframeRequest() -> Bool {
@@ -88,7 +84,7 @@ final class WebRTCStreamer: NSObject {
         config.iceServers = []
         config.continualGatheringPolicy = .gatherContinually
         let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: ["DtlsSrtpKeyAgreement": "true"])
-        guard let pc = factory.peerConnection(with: config, constraints: constraints, delegate: self) else { return }
+        let pc = factory.peerConnection(with: config, constraints: constraints, delegate: self)
         peerConnection = pc
 
         pc.setRemoteDescription(offer) { [weak self] error in
@@ -119,7 +115,7 @@ final class WebRTCStreamer: NSObject {
         let candidates = store.browserIce
         guard browserIceCursor < candidates.count else { return }
         for record in candidates[browserIceCursor...] {
-            peerConnection.add(RTCIceCandidate(sdp: record.candidate, sdpMLineIndex: record.sdpMLineIndex, sdpMid: record.sdpMid))
+            peerConnection.add(RTCIceCandidate(sdp: record.candidate, sdpMLineIndex: record.sdpMLineIndex, sdpMid: record.sdpMid)) { _ in }
         }
         browserIceCursor = candidates.count
     }

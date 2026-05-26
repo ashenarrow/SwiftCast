@@ -57,16 +57,28 @@ jobs:
       - name: Build unsigned Debug app
         working-directory: ios
         run: |
+          set -o pipefail
+          mkdir -p build
           xcodebuild \
             -workspace SwiftCast.xcworkspace \
             -scheme SwiftCast \
             -configuration Debug \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
+            -resultBundlePath build/SwiftCast.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            build
+            build 2>&1 | tee build/xcodebuild.log
+
+      - name: Print compiler diagnostics on failure
+        if: failure()
+        working-directory: ios
+        run: |
+          echo "---- Swift errors ----"
+          grep -n -E "error:|warning:|BUILD FAILED|The following build commands failed" build/xcodebuild.log || true
+          echo "---- Result bundle ----"
+          xcrun xcresulttool get --legacy --format json --path build/SwiftCast.xcresult > build/SwiftCast.xcresult.json || true
 
       - name: Upload build logs on failure
         if: failure()
@@ -74,8 +86,10 @@ jobs:
         with:
           name: ios-build-diagnostics
           path: |
+            ios/build/xcodebuild.log
+            ios/build/SwiftCast.xcresult
+            ios/build/SwiftCast.xcresult.json
             ios/Pods/Manifest.lock
             ios/SwiftCast.xcodeproj
             ios/SwiftCast.xcworkspace
           if-no-files-found: ignore
-
