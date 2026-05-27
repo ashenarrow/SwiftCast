@@ -64,6 +64,15 @@ Two GitHub Actions workflows are included:
 
 The iOS workflow validates compilation only. Real ReplayKit capture, app audio, and low-latency streaming still require a signed build on a physical iPhone.
 
+Successful iOS CI runs upload `swiftcast-ios-debug-unsigned`, which contains:
+
+- `SwiftCast-unsigned.ipa`
+- `SwiftCast.app.zip`
+- `SwiftCast-dSYMs.zip` when debug symbols are emitted
+- `xcodebuild.log`
+
+The CI IPA is unsigned because GitHub Actions builds with `CODE_SIGNING_ALLOWED=NO`. Use a signed archive/export workflow before installing on devices outside local development.
+
 ## Defaults
 
 - Gaming preset: 1280x720, 30 fps, 3-8 Mbps

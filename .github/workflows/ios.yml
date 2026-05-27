@@ -65,11 +65,51 @@ jobs:
             -configuration Debug \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
             -resultBundlePath build/SwiftCast.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             build 2>&1 | tee build/xcodebuild.log
+
+      - name: Package unsigned IPA and app bundle
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="build/artifacts"
+          PRODUCTS_DIR="build/DerivedData/Build/Products/Debug-iphoneos"
+          APP_PATH="$PRODUCTS_DIR/SwiftCast.app"
+
+          test -d "$APP_PATH"
+          rm -rf "$ARTIFACT_DIR"
+          mkdir -p "$ARTIFACT_DIR/Payload"
+
+          ditto "$APP_PATH" "$ARTIFACT_DIR/Payload/SwiftCast.app"
+          ditto -c -k --sequesterRsrc --keepParent "$ARTIFACT_DIR/Payload" "$ARTIFACT_DIR/SwiftCast-unsigned.ipa"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ARTIFACT_DIR/SwiftCast.app.zip"
+
+          DSYM_DIRS=$(find "$PRODUCTS_DIR" -maxdepth 1 -name "*.dSYM" -type d -print || true)
+          if [ -n "$DSYM_DIRS" ]; then
+            mkdir -p "$ARTIFACT_DIR/dSYMs"
+            while IFS= read -r dsym; do
+              [ -n "$dsym" ] && ditto "$dsym" "$ARTIFACT_DIR/dSYMs/$(basename "$dsym")"
+            done <<< "$DSYM_DIRS"
+            ditto -c -k --sequesterRsrc --keepParent "$ARTIFACT_DIR/dSYMs" "$ARTIFACT_DIR/SwiftCast-dSYMs.zip"
+          fi
+
+          ls -lah "$ARTIFACT_DIR"
+
+      - name: Upload iOS build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftcast-ios-debug-unsigned
+          path: |
+            ios/build/artifacts/SwiftCast-unsigned.ipa
+            ios/build/artifacts/SwiftCast.app.zip
+            ios/build/artifacts/SwiftCast-dSYMs.zip
+            ios/build/xcodebuild.log
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Print compiler diagnostics on failure
         if: failure()
