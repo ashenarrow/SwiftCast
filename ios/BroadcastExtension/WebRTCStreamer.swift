@@ -9,10 +9,12 @@ final class WebRTCStreamer: NSObject {
     private var audioChannel: RTCDataChannel?
     private var controlChannel: RTCDataChannel?
     private var icePollTimer: DispatchSourceTimer?
+    private var statusTimer: DispatchSourceTimer?
     private var browserIceCursor = 0
     private var keyframeRequested = true
     private var remoteSignaling: RemoteSignalingClient?
     private var isStopped = false
+    private var currentStatusPhase = "idle"
     private let queue = DispatchQueue(label: "swiftcast.webrtc.streamer")
 
     init(store: AppGroupStore) {
@@ -23,7 +25,7 @@ final class WebRTCStreamer: NSObject {
 
     func start() {
         isStopped = false
-        store.broadcastStatus = "Waiting for browser"
+        setStatus("waiting-for-offer", appStatus: "Waiting for browser", detail: "\(store.diagnostics), pair \(store.pairCode)")
         queue.async {
             self.waitForOfferAndAnswer()
         }
@@ -31,9 +33,9 @@ final class WebRTCStreamer: NSObject {
 
     func stop() {
         isStopped = true
-        store.broadcastStatus = "Idle"
-        remoteSignaling?.postStatus("idle")
+        setStatus("idle", appStatus: "Idle")
         icePollTimer?.cancel()
+        statusTimer?.cancel()
         peerConnection?.close()
         peerConnection = nil
         videoChannel = nil
@@ -79,8 +81,10 @@ final class WebRTCStreamer: NSObject {
 
     private func waitForOfferAndAnswer() {
         remoteSignaling = RemoteSignalingClient(connection: store.connection, pairCode: store.pairCode)
+            ?? RemoteSignalingClient(connection: .default, pairCode: store.pairCode)
         remoteSignaling?.postSettings(store.settings)
-        remoteSignaling?.postStatus("waiting-for-offer", detail: "\(store.diagnostics), pair \(store.pairCode)")
+        startStatusHeartbeat()
+        setStatus("waiting-for-offer", appStatus: "Waiting for browser", detail: "\(store.diagnostics), pair \(store.pairCode)")
 
         var offerJSON: String?
         while !isStopped && peerConnection == nil {
@@ -92,8 +96,7 @@ final class WebRTCStreamer: NSObject {
               let offer = RTCSessionDescription(json: offerJSON) else {
             return
         }
-        store.broadcastStatus = "Browser offer received"
-        remoteSignaling?.postStatus("offer-received")
+        setStatus("offer-received", appStatus: "Browser offer received")
 
         let config = RTCConfiguration()
         config.sdpSemantics = .unifiedPlan
@@ -117,15 +120,34 @@ final class WebRTCStreamer: NSObject {
                     let answerJSON = answer.jsonString
                     if let remoteSignaling = self.remoteSignaling {
                         remoteSignaling.postAnswer(answerJSON)
-                        remoteSignaling.postStatus("answer-sent")
                     } else {
                         self.store.answer = answerJSON
                     }
-                    self.store.broadcastStatus = "Connecting"
+                    self.setStatus("answer-sent", appStatus: "Connecting")
                     self.startIcePolling()
                 }
             }
         }
+    }
+
+    private func setStatus(_ phase: String, appStatus: String? = nil, detail: String? = nil) {
+        currentStatusPhase = phase
+        if let appStatus {
+            store.broadcastStatus = appStatus
+        }
+        remoteSignaling?.postStatus(phase, detail: detail)
+    }
+
+    private func startStatusHeartbeat() {
+        statusTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now(), repeating: .seconds(2))
+        timer.setEventHandler { [weak self] in
+            guard let self, !self.isStopped else { return }
+            self.remoteSignaling?.postStatus(self.currentStatusPhase, detail: "\(self.store.diagnostics), pair \(self.store.pairCode)")
+        }
+        timer.resume()
+        statusTimer = timer
     }
 
     private func startIcePolling() {
@@ -209,23 +231,23 @@ extension WebRTCStreamer: RTCPeerConnectionDelegate {
         switch newState {
         case .connected, .completed:
             phase = "Broadcasting"
-            remoteSignaling?.postStatus("connected")
+            setStatus("connected", appStatus: phase)
         case .checking:
             phase = "Connecting"
-            remoteSignaling?.postStatus("ice-checking")
+            setStatus("ice-checking", appStatus: phase)
         case .failed:
             phase = "Connection failed"
-            remoteSignaling?.postStatus("ice-failed", detail: "Add a TURN server if STUN cannot create a direct route")
+            setStatus("ice-failed", appStatus: phase, detail: "Add a TURN server if STUN cannot create a direct route")
         case .disconnected:
             phase = "Disconnected"
-            remoteSignaling?.postStatus("disconnected")
+            setStatus("disconnected", appStatus: phase)
         case .closed:
             phase = "Idle"
-            remoteSignaling?.postStatus("idle")
+            setStatus("idle", appStatus: phase)
         default:
             phase = "Connecting"
+            setStatus("ice-state-changed", appStatus: phase)
         }
-        store.broadcastStatus = phase
     }
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}

@@ -280,11 +280,12 @@ final class BroadcastPickerContainer: UIView {
     private func updateButtonTitle() {
         let status = AppGroupStore.shared.broadcastStatus
         var configuration = button.configuration ?? UIButton.Configuration.filled()
-        configuration.title = status == "Broadcasting" ? "Broadcasting..." : "Start Screen Broadcast"
+        configuration.title = status == "Broadcasting" || status == "Broadcast launch requested" ? "Broadcasting..." : "Start Screen Broadcast"
         button.configuration = configuration
     }
 
     @objc private func openBroadcastPicker() {
+        AppGroupStore.shared.broadcastStatus = "Broadcast launch requested"
         updateButtonTitle()
         guard let pickerButton = picker.subviews.compactMap({ $0 as? UIButton }).first else {
             return

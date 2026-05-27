@@ -117,6 +117,7 @@ const $ = <T extends Element>(selector: string) => {
 
 let settings: SwiftCastSettings = { ...defaultSettings };
 let peer: SwiftCastPeer | null = null;
+let isStartingPeer = false;
 const signaling = new SignalingClient();
 const audio = new LowLatencyAudio();
 const canvas = $<HTMLCanvasElement>("[data-canvas]");
@@ -191,6 +192,8 @@ function bindViewerSettings(): void {
 async function boot(): Promise<void> {
   if (!isChromeWithWebCodecs()) {
     unsupported.hidden = false;
+    setStatus("Unsupported browser");
+    return;
   }
   const session = await signaling.getSession();
   settings = { ...defaultSettings, ...session.settings };
@@ -199,17 +202,30 @@ async function boot(): Promise<void> {
   renderRoomStatus(session.status ?? null);
   bindViewerSettings();
   setStatus("Ready");
+  await startPeer();
+}
+
+async function startPeer(): Promise<void> {
+  if (isStartingPeer || peer?.stats.state === "connecting" || peer?.stats.state === "connected") return;
+  isStartingPeer = true;
+  try {
+    peer?.stop();
+    peer = new SwiftCastPeer(signaling, video, audio, (status) => setStatus(status, status.includes("connected")));
+    await peer.start(settings);
+    empty.hidden = true;
+    drawer.classList.remove("open");
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "Peer start failed");
+  } finally {
+    isStartingPeer = false;
+  }
 }
 
 $<HTMLButtonElement>("[data-menu]").addEventListener("click", () => drawer.classList.add("open"));
 $<HTMLButtonElement>("[data-close]").addEventListener("click", () => drawer.classList.remove("open"));
 
 $<HTMLButtonElement>("[data-start]").addEventListener("click", async () => {
-  peer?.stop();
-  peer = new SwiftCastPeer(signaling, video, audio, (status) => setStatus(status, status.includes("connected")));
-  await peer.start(settings);
-  empty.hidden = true;
-  drawer.classList.remove("open");
+  await startPeer();
 });
 
 $<HTMLButtonElement>("[data-audio]").addEventListener("click", async () => {
