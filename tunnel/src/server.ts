@@ -19,7 +19,7 @@ const app = express();
 const rooms = new Map<string, Room>();
 const ttlMs = Number(process.env.SWIFTCAST_SESSION_TTL_MS ?? 10 * 60 * 1000);
 const bodyLimit = process.env.SWIFTCAST_MAX_BODY_BYTES ?? "1mb";
-const defaultDomain = process.env.SWIFTCAST_PUBLIC_URL ?? "https://usa1-swiftcast.up.railway.app";
+const defaultDomain = process.env.SWIFTCAST_PUBLIC_URL ?? "https://swiftcast-production.up.railway.app";
 
 app.disable("x-powered-by");
 app.use(express.json({ limit: bodyLimit }));

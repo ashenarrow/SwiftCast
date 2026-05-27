@@ -55,7 +55,7 @@ Node version: 22
 Recommended environment variables:
 
 ```bash
-SWIFTCAST_PUBLIC_URL=https://usa1-swiftcast.up.railway.app
+SWIFTCAST_PUBLIC_URL=https://swiftcast-production.up.railway.app
 SWIFTCAST_SESSION_TTL_MS=600000
 SWIFTCAST_MAX_BODY_BYTES=1mb
 ```
@@ -63,10 +63,10 @@ SWIFTCAST_MAX_BODY_BYTES=1mb
 Open the viewer at:
 
 ```text
-https://usa1-swiftcast.up.railway.app/watch?pair=YOUR_PAIR_CODE
+https://swiftcast-production.up.railway.app/watch?pair=YOUR_PAIR_CODE
 ```
 
-The iOS app defaults to `https://usa1-swiftcast.up.railway.app`, and you can change it in the Pairing card before starting the broadcast. The browser-side controls are intentionally viewer controls only: start peer, enable audio playback, fullscreen, keyframe request, ROI request, audio sync, and stats display. Capture-heavy settings such as FPS, resolution, bitrate range, temporal compression, P-frames, app audio, mic, gain, and encoder behavior live in the iOS app so the ReplayKit extension can read them before capture begins.
+The iOS app defaults to `https://swiftcast-production.up.railway.app`, and you can change it in the Pairing card before starting the broadcast. The browser-side controls are intentionally viewer controls only: start peer, enable audio playback, fullscreen, keyframe request, ROI request, audio sync, and stats display. Capture-heavy settings such as FPS, resolution, bitrate range, temporal compression, P-frames, app audio, mic, gain, and encoder behavior live in the iOS app so the ReplayKit extension can read them before capture begins.
 
 ## iOS Setup on macOS
 
