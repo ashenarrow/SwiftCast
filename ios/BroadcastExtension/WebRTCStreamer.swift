@@ -21,12 +21,15 @@ final class WebRTCStreamer: NSObject {
     }
 
     func start() {
+        store.broadcastStatus = "Waiting for browser"
         queue.async {
             self.waitForOfferAndAnswer()
         }
     }
 
     func stop() {
+        store.broadcastStatus = "Idle"
+        remoteSignaling?.postStatus("idle")
         icePollTimer?.cancel()
         peerConnection?.close()
         peerConnection = nil
@@ -74,6 +77,7 @@ final class WebRTCStreamer: NSObject {
     private func waitForOfferAndAnswer() {
         remoteSignaling = RemoteSignalingClient(connection: store.connection, pairCode: store.pairCode)
         remoteSignaling?.postSettings(store.settings)
+        remoteSignaling?.postStatus("waiting-for-offer", detail: "Broadcast extension is running")
 
         let deadline = Date().addingTimeInterval(20)
         var offerJSON: String?
@@ -84,12 +88,21 @@ final class WebRTCStreamer: NSObject {
         }
         guard let offerJSON,
               let offer = RTCSessionDescription(json: offerJSON) else {
+            store.broadcastStatus = "No browser offer"
+            remoteSignaling?.postStatus("no-offer", detail: "Open the viewer and press Start peer first")
             return
         }
+        store.broadcastStatus = "Browser offer received"
+        remoteSignaling?.postStatus("offer-received")
 
         let config = RTCConfiguration()
         config.sdpSemantics = .unifiedPlan
-        config.iceServers = []
+        config.iceServers = [
+            RTCIceServer(urlStrings: [
+                "stun:stun.l.google.com:19302",
+                "stun:stun1.l.google.com:19302"
+            ])
+        ]
         config.continualGatheringPolicy = .gatherContinually
         let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: ["DtlsSrtpKeyAgreement": "true"])
         let pc = factory.peerConnection(with: config, constraints: constraints, delegate: self)
@@ -104,9 +117,11 @@ final class WebRTCStreamer: NSObject {
                     let answerJSON = answer.jsonString
                     if let remoteSignaling = self.remoteSignaling {
                         remoteSignaling.postAnswer(answerJSON)
+                        remoteSignaling.postStatus("answer-sent")
                     } else {
                         self.store.answer = answerJSON
                     }
+                    self.store.broadcastStatus = "Connecting"
                     self.startIcePolling()
                 }
             }
@@ -189,7 +204,29 @@ extension WebRTCStreamer: RTCPeerConnectionDelegate {
     func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
     func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
+        let phase: String
+        switch newState {
+        case .connected, .completed:
+            phase = "Broadcasting"
+            remoteSignaling?.postStatus("connected")
+        case .checking:
+            phase = "Connecting"
+            remoteSignaling?.postStatus("ice-checking")
+        case .failed:
+            phase = "Connection failed"
+            remoteSignaling?.postStatus("ice-failed", detail: "Add a TURN server if STUN cannot create a direct route")
+        case .disconnected:
+            phase = "Disconnected"
+            remoteSignaling?.postStatus("disconnected")
+        case .closed:
+            phase = "Idle"
+            remoteSignaling?.postStatus("idle")
+        default:
+            phase = "Connecting"
+        }
+        store.broadcastStatus = phase
+    }
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {

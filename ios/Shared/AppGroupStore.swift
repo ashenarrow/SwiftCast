@@ -58,11 +58,17 @@ final class AppGroupStore {
         set { write(newValue, to: "broadcast-ice.json") }
     }
 
+    var broadcastStatus: String {
+        get { read("broadcast-status.json") ?? "Idle" }
+        set { write(newValue, to: "broadcast-status.json") }
+    }
+
     func resetSession() {
         offer = nil
         answer = nil
         browserIce = []
         broadcastIce = []
+        broadcastStatus = "Idle"
     }
 
     func resetPairingCode() {

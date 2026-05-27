@@ -29,7 +29,11 @@ export class SwiftCastPeer {
     rttMs: 0
   };
 
-  private readonly pc = new RTCPeerConnection({ iceServers: [] });
+  private readonly pc = new RTCPeerConnection({
+    iceServers: [
+      { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }
+    ]
+  });
   private readonly videoChannel = this.pc.createDataChannel("video", { ordered: false, maxRetransmits: 0 });
   private readonly audioChannel = this.pc.createDataChannel("audio", { ordered: false, maxRetransmits: 0 });
   private readonly controlChannel = this.pc.createDataChannel("control", { ordered: true });

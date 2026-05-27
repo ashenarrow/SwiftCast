@@ -121,6 +121,15 @@ final class LocalWebServer {
             return json(SessionInfo(pairCode: store.pairCode, settings: store.settings))
         case ("GET", "/api/settings"):
             return json(store.settings)
+        case ("GET", "/api/status"):
+            return json(LocalRoomStatus(phase: store.broadcastStatus, hasOffer: store.offer != nil, hasAnswer: store.answer != nil, browserIce: store.browserIce.count, broadcastIce: store.broadcastIce.count))
+        case ("POST", "/api/status"):
+            if let object = try? JSONSerialization.jsonObject(with: request.body) as? [String: Any],
+               let phase = object["phase"] as? String {
+                store.broadcastStatus = phase
+                return json(["ok": true])
+            }
+            return HTTPResponse.badRequest("Invalid status").data
         case ("POST", "/api/settings"):
             if let settings = try? decoder.decode(SwiftCastSettings.self, from: request.body) {
                 store.settings = settings
@@ -160,6 +169,15 @@ final class LocalWebServer {
             return json(SessionInfo(pairCode: store.pairCode, settings: store.settings))
         case ("GET", "settings"):
             return json(store.settings)
+        case ("GET", "status"):
+            return json(LocalRoomStatus(phase: store.broadcastStatus, hasOffer: store.offer != nil, hasAnswer: store.answer != nil, browserIce: store.browserIce.count, broadcastIce: store.broadcastIce.count))
+        case ("POST", "status"):
+            if let object = try? JSONSerialization.jsonObject(with: request.body) as? [String: Any],
+               let phase = object["phase"] as? String {
+                store.broadcastStatus = phase
+                return json(["ok": true])
+            }
+            return HTTPResponse.badRequest("Invalid status").data
         case ("POST", "settings"):
             if let settings = try? decoder.decode(SwiftCastSettings.self, from: request.body) {
                 store.settings = settings
@@ -313,6 +331,14 @@ final class LocalWebServer {
 private struct BroadcastIceResponse: Encodable {
     var next: Int
     var candidates: [IceCandidateRecord]
+}
+
+private struct LocalRoomStatus: Encodable {
+    var phase: String
+    var hasOffer: Bool
+    var hasAnswer: Bool
+    var browserIce: Int
+    var broadcastIce: Int
 }
 
 private struct HTTPRequest {

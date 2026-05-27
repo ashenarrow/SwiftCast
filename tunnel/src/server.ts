@@ -11,6 +11,7 @@ interface Room {
   offer: JsonObject | null;
   answer: JsonObject | null;
   settings: JsonObject;
+  status: JsonObject;
   browserIce: JsonObject[];
   broadcastIce: JsonObject[];
 }
@@ -51,6 +52,7 @@ function getRoom(req: Request, res: Response): Room | null {
       offer: null,
       answer: null,
       settings: {},
+      status: { phase: "idle", updatedAt: now() / 1000 },
       browserIce: [],
       broadcastIce: []
     };
@@ -88,7 +90,7 @@ app.get("/healthz", (_req, res) => {
 app.get("/api/rooms/:pair/session", (req, res) => {
   const room = getRoom(req, res);
   if (!room) return;
-  res.json({ pairCode: room.pairCode, settings: room.settings, mode: "tunnel" });
+  res.json({ pairCode: room.pairCode, settings: room.settings, status: room.status, mode: "tunnel" });
 });
 
 app.post("/api/rooms/:pair/offer", (req, res) => {
@@ -140,6 +142,27 @@ app.post("/api/rooms/:pair/settings", (req, res) => {
   const room = getRoom(req, res);
   if (!room) return;
   room.settings = req.body as JsonObject;
+  room.updatedAt = now();
+  res.json({ ok: true });
+});
+
+app.get("/api/rooms/:pair/status", (req, res) => {
+  const room = getRoom(req, res);
+  if (!room) return;
+  res.json({
+    ...room.status,
+    hasOffer: Boolean(room.offer),
+    hasAnswer: Boolean(room.answer),
+    browserIce: room.browserIce.length,
+    broadcastIce: room.broadcastIce.length,
+    updatedAt: room.status.updatedAt ?? room.updatedAt / 1000
+  });
+});
+
+app.post("/api/rooms/:pair/status", (req, res) => {
+  const room = getRoom(req, res);
+  if (!room) return;
+  room.status = { ...(req.body as JsonObject), updatedAt: now() / 1000 };
   room.updatedAt = now();
   res.json({ ok: true });
 });

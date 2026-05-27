@@ -23,6 +23,12 @@ struct ContentView: View {
             .navigationTitle("SwiftCast")
         }
         .navigationViewStyle(.stack)
+        .task {
+            while !Task.isCancelled {
+                model.refreshBroadcastStatus()
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
     }
 
     private var header: some View {
@@ -88,6 +94,9 @@ struct ContentView: View {
                 .font(.headline)
             Text("Tap the broadcast button below and choose SwiftCast Broadcast. This is the system screen broadcast prompt.")
                 .foregroundStyle(.secondary)
+            Label(model.broadcastStatus, systemImage: model.broadcastStatus == "Broadcasting" ? "dot.radiowaves.left.and.right" : "record.circle")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(model.broadcastStatus == "Broadcasting" ? .green : .secondary)
             BroadcastPickerButton()
                 .frame(height: 56)
                 .padding(.vertical, 4)
@@ -214,6 +223,7 @@ final class BroadcastPickerContainer: UIView {
 
     func updateExtensionIdentifier() {
         picker.preferredExtension = Bundle.main.bundleIdentifier.map { "\($0).broadcast" } ?? "com.ashenarrow.swiftcast.broadcast"
+        updateButtonTitle()
     }
 
     private func setup() {
@@ -251,7 +261,15 @@ final class BroadcastPickerContainer: UIView {
         ])
     }
 
+    private func updateButtonTitle() {
+        let status = AppGroupStore.shared.broadcastStatus
+        var configuration = button.configuration ?? UIButton.Configuration.filled()
+        configuration.title = status == "Broadcasting" ? "Broadcasting..." : "Start Screen Broadcast"
+        button.configuration = configuration
+    }
+
     @objc private func openBroadcastPicker() {
+        updateButtonTitle()
         guard let pickerButton = picker.subviews.compactMap({ $0 as? UIButton }).first else {
             return
         }

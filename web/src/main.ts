@@ -66,6 +66,11 @@ app.innerHTML = `
         <small data-mode>Local or tunnel</small>
       </section>
 
+      <section class="panel">
+        <h2>Tunnel State</h2>
+        <p data-room-status>Waiting for room status</p>
+      </section>
+
       <section class="panel action-grid">
         <button class="primary" data-start>Start peer</button>
         <button data-audio>Enable audio</button>
@@ -119,6 +124,7 @@ const statusText = $<HTMLElement>("[data-status]");
 const statusPill = $<HTMLElement>("[data-status-pill]");
 const pairText = $<HTMLElement>("[data-pair]");
 const modeText = $<HTMLElement>("[data-mode]");
+const roomStatusText = $<HTMLElement>("[data-room-status]");
 const empty = $<HTMLElement>("[data-empty]");
 const unsupported = $<HTMLElement>("[data-unsupported]");
 const drawer = $<HTMLElement>("[data-drawer]");
@@ -130,6 +136,23 @@ function setStatus(text: string, live = false): void {
   statusText.textContent = text;
   statusPill.textContent = live ? "Live" : "Pairing";
   statusPill.classList.toggle("live", live);
+}
+
+function renderRoomStatus(status: Awaited<ReturnType<SignalingClient["getStatus"]>>): void {
+  if (!status) {
+    roomStatusText.textContent = "No tunnel status yet. Start the browser peer, then start the iOS broadcast.";
+    return;
+  }
+
+  const parts = [
+    status.phase ? `Extension: ${status.phase}` : "Extension: idle",
+    status.hasOffer ? "offer" : "no offer",
+    status.hasAnswer ? "answer" : "no answer",
+    `browser ICE ${status.browserIce ?? 0}`,
+    `broadcast ICE ${status.broadcastIce ?? 0}`
+  ];
+  if (status.detail) parts.push(status.detail);
+  roomStatusText.textContent = parts.join(" | ");
 }
 
 function bindViewerSettings(): void {
@@ -173,6 +196,7 @@ async function boot(): Promise<void> {
   settings = { ...defaultSettings, ...session.settings };
   pairText.textContent = session.pairCode;
   modeText.textContent = session.mode === "tunnel" ? "Railway tunnel signaling" : "Local app signaling";
+  renderRoomStatus(session.status ?? null);
   bindViewerSettings();
   setStatus("Ready");
 }
@@ -212,5 +236,9 @@ window.setInterval(() => {
   $<HTMLElement>("[data-audio-buffer]").textContent = `${audio.stats.bufferedMs.toFixed(0)} ms`;
   $<HTMLElement>("[data-video-rate]").textContent = `${((peer.stats.videoBytes * 8) / 1_000_000).toFixed(1)} Mb`;
 }, 500);
+
+window.setInterval(async () => {
+  renderRoomStatus(await signaling.getStatus());
+}, 1000);
 
 void boot();

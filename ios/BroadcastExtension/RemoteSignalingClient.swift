@@ -43,6 +43,12 @@ final class RemoteSignalingClient {
         _ = request(method: "POST", path: "settings", body: data) as Data?
     }
 
+    func postStatus(_ phase: String, detail: String? = nil) {
+        let payload = BroadcastStatus(phase: phase, detail: detail, updatedAt: Date().timeIntervalSince1970)
+        guard let data = try? encoder.encode(payload) else { return }
+        _ = request(method: "POST", path: "status", body: data) as Data?
+    }
+
     private func request<T: Decodable>(method: String, path: String, body: Data?) -> T? {
         guard let data = requestData(method: method, path: path, body: body) else { return nil }
         if T.self == String.self {
@@ -96,4 +102,10 @@ final class RemoteSignalingClient {
 struct CandidatePage: Codable {
     var next: Int
     var candidates: [IceCandidateRecord]
+}
+
+struct BroadcastStatus: Codable {
+    var phase: String
+    var detail: String?
+    var updatedAt: TimeInterval
 }

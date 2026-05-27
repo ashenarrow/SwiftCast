@@ -10,6 +10,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
     private var frameId: UInt32 = 0
 
     override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
+        store.broadcastStatus = "Broadcast starting"
         let settings = store.settings
         let streamer = WebRTCStreamer(store: store)
         self.streamer = streamer
@@ -20,6 +21,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
     }
 
     override func broadcastFinished() {
+        store.broadcastStatus = "Idle"
         streamer?.stop()
         encoder?.invalidate()
         streamer = nil
@@ -60,4 +62,3 @@ final class SampleHandler: RPBroadcastSampleHandler {
         return frameId
     }
 }
-

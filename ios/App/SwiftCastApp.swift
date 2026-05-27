@@ -19,6 +19,7 @@ struct SwiftCastApp: App {
 final class SwiftCastModel: ObservableObject {
     @Published var serverURL: URL?
     @Published var serverStatus = "Local server idle"
+    @Published var broadcastStatus = AppGroupStore.shared.broadcastStatus
     @Published var settings = AppGroupStore.shared.settings {
         didSet { AppGroupStore.shared.settings = settings }
     }
@@ -49,6 +50,11 @@ final class SwiftCastModel: ObservableObject {
 
     func resetPairing() {
         AppGroupStore.shared.resetPairingCode()
+        broadcastStatus = AppGroupStore.shared.broadcastStatus
         objectWillChange.send()
+    }
+
+    func refreshBroadcastStatus() {
+        broadcastStatus = AppGroupStore.shared.broadcastStatus
     }
 }

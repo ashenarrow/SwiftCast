@@ -3,7 +3,18 @@ import { defaultSettings, SwiftCastSettings } from "./protocol";
 export interface SessionInfo {
   pairCode: string;
   settings: SwiftCastSettings;
+  status?: RoomStatus;
   mode?: "local" | "tunnel";
+}
+
+export interface RoomStatus {
+  phase?: string;
+  detail?: string;
+  hasOffer?: boolean;
+  hasAnswer?: boolean;
+  browserIce?: number;
+  broadcastIce?: number;
+  updatedAt?: number;
 }
 
 export class SignalingClient {
@@ -50,6 +61,16 @@ export class SignalingClient {
 
   async updateSettings(settings: SwiftCastSettings): Promise<void> {
     await this.post(this.path("settings"), settings);
+  }
+
+  async getStatus(): Promise<RoomStatus | null> {
+    const response = await fetch(`${this.baseUrl}${this.path("status")}`, { cache: "no-store" });
+    if (!response.ok) return null;
+    return response.json();
+  }
+
+  async updateStatus(status: RoomStatus): Promise<void> {
+    await this.post(this.path("status"), status);
   }
 
   private path(name: string): string {
