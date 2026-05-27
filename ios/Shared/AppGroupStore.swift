@@ -33,6 +33,11 @@ final class AppGroupStore {
         set { write(newValue, to: "settings.json") }
     }
 
+    var connection: SwiftCastConnectionConfig {
+        get { read("connection.json") ?? .default }
+        set { write(newValue, to: "connection.json") }
+    }
+
     var offer: String? {
         get { read("offer.json") }
         set { writeOptional(newValue, to: "offer.json") }
@@ -58,6 +63,11 @@ final class AppGroupStore {
         answer = nil
         browserIce = []
         broadcastIce = []
+    }
+
+    func resetPairingCode() {
+        resetSession()
+        try? FileManager.default.removeItem(at: url("pair-code.json"))
     }
 
     private func url(_ filename: String) -> URL {

@@ -46,6 +46,14 @@ struct SwiftCastSettings: Codable, Equatable {
     static let `default` = SwiftCastSettings()
 }
 
+struct SwiftCastConnectionConfig: Codable, Equatable {
+    var tunnelEnabled: Bool = true
+    var tunnelBaseURL: String = "https://usa1-swiftcast.up.railway.app"
+    var localServerEnabled: Bool = true
+
+    static let `default` = SwiftCastConnectionConfig()
+}
+
 struct CGRectCodable: Codable, Equatable {
     var x: Double
     var y: Double

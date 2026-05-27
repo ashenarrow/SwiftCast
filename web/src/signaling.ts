@@ -3,42 +3,57 @@ import { defaultSettings, SwiftCastSettings } from "./protocol";
 export interface SessionInfo {
   pairCode: string;
   settings: SwiftCastSettings;
+  mode?: "local" | "tunnel";
 }
 
 export class SignalingClient {
-  constructor(private readonly baseUrl = window.location.origin) {}
+  private readonly pairCode: string | null;
+  private readonly roomPrefix: string | null;
+
+  constructor(private readonly baseUrl = window.location.origin) {
+    const params = new URLSearchParams(window.location.search);
+    this.pairCode = params.get("pair")?.trim() || window.localStorage.getItem("swiftcast.pairCode");
+    this.roomPrefix = this.pairCode ? `/api/rooms/${encodeURIComponent(this.pairCode)}` : null;
+    if (this.pairCode) window.localStorage.setItem("swiftcast.pairCode", this.pairCode);
+  }
 
   async getSession(): Promise<SessionInfo> {
-    const response = await fetch(`${this.baseUrl}/api/session`, { cache: "no-store" });
+    const path = this.roomPrefix ? `${this.roomPrefix}/session` : "/api/session";
+    const response = await fetch(`${this.baseUrl}${path}`, { cache: "no-store" });
     if (!response.ok) {
-      return { pairCode: "DEV", settings: defaultSettings };
+      return { pairCode: this.pairCode ?? "DEV", settings: defaultSettings };
     }
-    return response.json();
+    const session = await response.json();
+    return { ...session, pairCode: session.pairCode ?? this.pairCode ?? "DEV" };
   }
 
   async sendOffer(description: RTCSessionDescriptionInit): Promise<void> {
-    await this.post("/api/offer", description);
+    await this.post(this.path("offer"), description);
   }
 
   async getAnswer(): Promise<RTCSessionDescriptionInit | null> {
-    const response = await fetch(`${this.baseUrl}/api/answer`, { cache: "no-store" });
+    const response = await fetch(`${this.baseUrl}${this.path("answer")}`, { cache: "no-store" });
     if (response.status === 404 || response.status === 204) return null;
     if (!response.ok) throw new Error(`answer poll failed: ${response.status}`);
     return response.json();
   }
 
   async sendBrowserCandidate(candidate: RTCIceCandidate): Promise<void> {
-    await this.post("/api/ice/browser", candidate.toJSON());
+    await this.post(this.path("ice/browser"), candidate.toJSON());
   }
 
   async getBroadcastCandidates(since: number): Promise<{ next: number; candidates: RTCIceCandidateInit[] }> {
-    const response = await fetch(`${this.baseUrl}/api/ice/broadcast?since=${since}`, { cache: "no-store" });
+    const response = await fetch(`${this.baseUrl}${this.path("ice/broadcast")}?since=${since}`, { cache: "no-store" });
     if (!response.ok) return { next: since, candidates: [] };
     return response.json();
   }
 
   async updateSettings(settings: SwiftCastSettings): Promise<void> {
-    await this.post("/api/settings", settings);
+    await this.post(this.path("settings"), settings);
+  }
+
+  private path(name: string): string {
+    return this.roomPrefix ? `${this.roomPrefix}/${name}` : `/api/${name}`;
   }
 
   private async post(path: string, body: unknown): Promise<void> {
@@ -50,4 +65,3 @@ export class SignalingClient {
     if (!response.ok) throw new Error(`${path} failed: ${response.status}`);
   }
 }
-

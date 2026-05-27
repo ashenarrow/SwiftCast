@@ -11,6 +11,7 @@ final class WebRTCStreamer: NSObject {
     private var icePollTimer: DispatchSourceTimer?
     private var browserIceCursor = 0
     private var keyframeRequested = true
+    private var remoteSignaling: RemoteSignalingClient?
     private let queue = DispatchQueue(label: "swiftcast.webrtc.streamer")
 
     init(store: AppGroupStore) {
@@ -32,6 +33,7 @@ final class WebRTCStreamer: NSObject {
         videoChannel = nil
         audioChannel = nil
         controlChannel = nil
+        remoteSignaling = nil
     }
 
     func takeKeyframeRequest() -> Bool {
@@ -70,11 +72,17 @@ final class WebRTCStreamer: NSObject {
     }
 
     private func waitForOfferAndAnswer() {
+        remoteSignaling = RemoteSignalingClient(connection: store.connection, pairCode: store.pairCode)
+        remoteSignaling?.postSettings(store.settings)
+
         let deadline = Date().addingTimeInterval(20)
-        while store.offer == nil && Date() < deadline {
+        var offerJSON: String?
+        while Date() < deadline {
+            offerJSON = remoteSignaling?.fetchOffer() ?? store.offer
+            if offerJSON != nil { break }
             Thread.sleep(forTimeInterval: 0.1)
         }
-        guard let offerJSON = store.offer,
+        guard let offerJSON,
               let offer = RTCSessionDescription(json: offerJSON) else {
             return
         }
@@ -93,7 +101,12 @@ final class WebRTCStreamer: NSObject {
                 guard error == nil, let answer else { return }
                 pc.setLocalDescription(answer) { error in
                     guard error == nil else { return }
-                    self.store.answer = answer.jsonString
+                    let answerJSON = answer.jsonString
+                    if let remoteSignaling = self.remoteSignaling {
+                        remoteSignaling.postAnswer(answerJSON)
+                    } else {
+                        self.store.answer = answerJSON
+                    }
                     self.startIcePolling()
                 }
             }
@@ -112,12 +125,20 @@ final class WebRTCStreamer: NSObject {
 
     private func pollBrowserIce() {
         guard let peerConnection else { return }
-        let candidates = store.browserIce
-        guard browserIceCursor < candidates.count else { return }
-        for record in candidates[browserIceCursor...] {
-            peerConnection.add(RTCIceCandidate(sdp: record.candidate, sdpMLineIndex: record.sdpMLineIndex, sdpMid: record.sdpMid))
+        if let remoteSignaling {
+            guard let page = remoteSignaling.fetchBrowserIce(since: browserIceCursor) else { return }
+            for record in page.candidates {
+                peerConnection.add(RTCIceCandidate(sdp: record.candidate, sdpMLineIndex: record.sdpMLineIndex, sdpMid: record.sdpMid))
+            }
+            browserIceCursor = page.next
+        } else {
+            let candidates = store.browserIce
+            guard browserIceCursor < candidates.count else { return }
+            for record in candidates[browserIceCursor...] {
+                peerConnection.add(RTCIceCandidate(sdp: record.candidate, sdpMLineIndex: record.sdpMLineIndex, sdpMid: record.sdpMid))
+            }
+            browserIceCursor = candidates.count
         }
-        browserIceCursor = candidates.count
     }
 
     private func send(_ packets: [Data], on channel: RTCDataChannel?) {
@@ -135,8 +156,9 @@ final class WebRTCStreamer: NSObject {
         }
         if type == "settings", let settingsObject = object["settings"],
            let settingsData = try? JSONSerialization.data(withJSONObject: settingsObject),
-           let settings = try? JSONDecoder().decode(SwiftCastSettings.self, from: settingsData) {
+            let settings = try? JSONDecoder().decode(SwiftCastSettings.self, from: settingsData) {
             store.settings = settings
+            remoteSignaling?.postSettings(settings)
             if settings.roiEnabled {
                 queue.async { self.keyframeRequested = true }
             }
@@ -157,6 +179,7 @@ final class WebRTCStreamer: NSObject {
         }
         if settings.maxBitrateKbps != oldMax {
             store.settings = settings
+            remoteSignaling?.postSettings(settings)
         }
     }
 }
@@ -180,9 +203,14 @@ extension WebRTCStreamer: RTCPeerConnectionDelegate {
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
-        var candidates = store.broadcastIce
-        candidates.append(IceCandidateRecord(candidate: candidate.sdp, sdpMLineIndex: candidate.sdpMLineIndex, sdpMid: candidate.sdpMid))
-        store.broadcastIce = candidates
+        let record = IceCandidateRecord(candidate: candidate.sdp, sdpMLineIndex: candidate.sdpMLineIndex, sdpMid: candidate.sdpMid)
+        if let remoteSignaling {
+            remoteSignaling.postBroadcastCandidate(record)
+        } else {
+            var candidates = store.broadcastIce
+            candidates.append(record)
+            store.broadcastIce = candidates
+        }
     }
 }
 

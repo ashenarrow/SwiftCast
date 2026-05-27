@@ -8,9 +8,12 @@ This repository is scaffolded for macOS/Xcode development. The current workspace
 
 - `ios/` contains the SwiftUI host app, ReplayKit Broadcast Upload Extension, shared protocol code, and XcodeGen/CocoaPods setup.
 - `web/` contains the Chrome WebCodecs viewer served by the iOS app.
+- `tunnel/` contains the Railway-ready pairing/signaling service for broadcasts that continue after the iOS host app leaves the foreground.
 - `docs/PROTOCOL.md` documents the binary media packets, settings, and signaling endpoints.
 
-The iOS host app serves the website over local HTTPS and bridges initial signaling through local HTTP-style endpoints. It never relays media. The Broadcast Upload Extension owns the active WebRTC peer and sends media directly to Chrome over SCTP DataChannels.
+For real use, the browser loads the Railway tunnel URL and pairs with the Broadcast Upload Extension by code. The tunnel stores offers, answers, ICE candidates, and settings only; it never relays screen video or audio. The iOS host app still includes a local HTTPS server, but that is only a foreground fallback because iOS suspends ordinary app work when you leave the app.
+
+The Broadcast Upload Extension owns the active WebRTC peer and sends media directly to Chrome over SCTP DataChannels.
 
 ## Browser Requirements
 
@@ -35,6 +38,35 @@ npm run dev
 ```
 
 The web build is copied into the iOS app bundle by the Xcode build script in `ios/project.yml`.
+
+## Railway Tunnel
+
+Deploy the repository root to Railway. Keep the service root at the repo root so Railway can build both `web/` and `tunnel/`.
+
+Railway settings:
+
+```bash
+Build command: npm --prefix web ci && npm --prefix web run build && npm --prefix tunnel ci && npm --prefix tunnel run build
+Start command: npm --prefix tunnel start
+Healthcheck path: /healthz
+Node version: 22
+```
+
+Recommended environment variables:
+
+```bash
+SWIFTCAST_PUBLIC_URL=https://usa1-swiftcast.up.railway.app
+SWIFTCAST_SESSION_TTL_MS=600000
+SWIFTCAST_MAX_BODY_BYTES=1mb
+```
+
+Open the viewer at:
+
+```text
+https://usa1-swiftcast.up.railway.app/watch?pair=YOUR_PAIR_CODE
+```
+
+The iOS app defaults to `https://usa1-swiftcast.up.railway.app`, and you can change it in the Pairing card before starting the broadcast. The browser-side controls are intentionally viewer controls only: start peer, enable audio playback, fullscreen, keyframe request, ROI request, audio sync, and stats display. Capture-heavy settings such as FPS, resolution, bitrate range, temporal compression, P-frames, app audio, mic, gain, and encoder behavior live in the iOS app so the ReplayKit extension can read them before capture begins.
 
 ## iOS Setup on macOS
 
@@ -108,6 +140,7 @@ Two GitHub Actions workflows are included:
 
 - `.github/workflows/web.yml` builds and audits the Chrome WebCodecs client on Ubuntu.
 - `.github/workflows/ios.yml` builds the iOS app and Broadcast Upload Extension on macOS with code signing disabled for CI.
+- `.github/workflows/tunnel.yml` builds the Railway tunnel and uploads a deployable service artifact.
 
 The iOS workflow validates compilation only. Real ReplayKit capture, app audio, and low-latency streaming still require a signed build on a physical iPhone.
 

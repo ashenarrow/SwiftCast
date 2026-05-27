@@ -1,0 +1,48 @@
+name: Tunnel
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Railway Tunnel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            tunnel/package-lock.json
+
+      - name: Install web dependencies
+        run: npm --prefix web ci
+
+      - name: Build web client
+        run: npm --prefix web run build
+
+      - name: Install tunnel dependencies
+        run: npm --prefix tunnel ci
+
+      - name: Build tunnel
+        run: npm --prefix tunnel run build
+
+      - name: Upload tunnel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftcast-railway-tunnel
+          path: |
+            tunnel/dist
+            tunnel/public
+            tunnel/package.json
+            tunnel/package-lock.json
+            railway.json

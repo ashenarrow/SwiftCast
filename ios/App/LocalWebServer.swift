@@ -36,6 +36,11 @@ final class LocalWebServer {
         return URL(string: "\(scheme)://\(advertisedHost):\(listener.port!.rawValue)")!
     }
 
+    func stop() {
+        listener?.cancel()
+        listener = nil
+    }
+
     private func startListener(using parameters: NWParameters) async throws -> NWListener {
         let safePorts: [UInt16] = [8443, 9443, 10443, 49152, 49153, 49154]
         var lastError: Error?
@@ -101,8 +106,14 @@ final class LocalWebServer {
             return HTTPResponse.badRequest("Malformed request").data
         }
 
+        if let roomRoute = Self.roomRouteSuffix(for: request.path) {
+            return routeRoom(method: request.method, suffix: roomRoute, request: request)
+        }
+
         switch (request.method, request.path) {
         case ("GET", "/"):
+            return serveStatic(path: "index.html")
+        case ("GET", "/watch"):
             return serveStatic(path: "index.html")
         case ("GET", let path) where path.hasPrefix("/assets/"):
             return serveStatic(path: String(path.dropFirst(1)))
@@ -134,6 +145,66 @@ final class LocalWebServer {
             }
             return HTTPResponse.badRequest("Invalid ICE candidate").data
         case ("GET", "/api/ice/broadcast"):
+            let since = Int(request.query["since"] ?? "0") ?? 0
+            let candidates = store.broadcastIce
+            let slice = since < candidates.count ? Array(candidates[since...]) : []
+            return json(BroadcastIceResponse(next: candidates.count, candidates: slice))
+        default:
+            return HTTPResponse.notFound("Not found").data
+        }
+    }
+
+    private func routeRoom(method: String, suffix: String, request: HTTPRequest) -> Data {
+        switch (method, suffix) {
+        case ("GET", "session"):
+            return json(SessionInfo(pairCode: store.pairCode, settings: store.settings))
+        case ("GET", "settings"):
+            return json(store.settings)
+        case ("POST", "settings"):
+            if let settings = try? decoder.decode(SwiftCastSettings.self, from: request.body) {
+                store.settings = settings
+                return json(["ok": true])
+            }
+            return HTTPResponse.badRequest("Invalid settings").data
+        case ("POST", "offer"):
+            store.resetSession()
+            store.offer = String(data: request.body, encoding: .utf8)
+            return json(["ok": true])
+        case ("GET", "offer"):
+            guard let offer = store.offer else {
+                return HTTPResponse(status: 204, reason: "No Content", headers: [:], body: Data()).data
+            }
+            return HTTPResponse.jsonString(offer).data
+        case ("POST", "answer"):
+            store.answer = String(data: request.body, encoding: .utf8)
+            return json(["ok": true])
+        case ("GET", "answer"):
+            guard let answer = store.answer else {
+                return HTTPResponse(status: 204, reason: "No Content", headers: [:], body: Data()).data
+            }
+            return HTTPResponse.jsonString(answer).data
+        case ("POST", "ice/browser"):
+            if let candidate = try? decoder.decode(IceCandidateRecord.self, from: request.body) {
+                var candidates = store.browserIce
+                candidates.append(candidate)
+                store.browserIce = candidates
+                return json(["ok": true])
+            }
+            return HTTPResponse.badRequest("Invalid ICE candidate").data
+        case ("GET", "ice/browser"):
+            let since = Int(request.query["since"] ?? "0") ?? 0
+            let candidates = store.browserIce
+            let slice = since < candidates.count ? Array(candidates[since...]) : []
+            return json(BroadcastIceResponse(next: candidates.count, candidates: slice))
+        case ("POST", "ice/broadcast"):
+            if let candidate = try? decoder.decode(IceCandidateRecord.self, from: request.body) {
+                var candidates = store.broadcastIce
+                candidates.append(candidate)
+                store.broadcastIce = candidates
+                return json(["ok": true])
+            }
+            return HTTPResponse.badRequest("Invalid ICE candidate").data
+        case ("GET", "ice/broadcast"):
             let since = Int(request.query["since"] ?? "0") ?? 0
             let candidates = store.broadcastIce
             let slice = since < candidates.count ? Array(candidates[since...]) : []
@@ -184,6 +255,16 @@ final class LocalWebServer {
         return candidates.first { candidate in
             FileManager.default.fileExists(atPath: candidate.appendingPathComponent("index.html").path)
         }
+    }
+
+    private static func roomRouteSuffix(for path: String) -> String? {
+        let parts = path.split(separator: "/").map(String.init)
+        guard parts.count >= 4,
+              parts[0] == "api",
+              parts[1] == "rooms" else {
+            return nil
+        }
+        return parts.dropFirst(3).joined(separator: "/")
     }
 
     private static func localTLSOptions() -> NWProtocolTLS.Options? {

@@ -15,99 +15,92 @@ if (!appRoot) throw new Error("missing app root");
 const app = appRoot;
 
 app.innerHTML = `
-  <main class="shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark">SC</div>
+  <main class="viewer-shell">
+    <canvas data-canvas></canvas>
+
+    <button class="menu-button" data-menu aria-label="Open controls">SC</button>
+
+    <section class="hud top-hud">
+      <div>
+        <strong>SwiftCast</strong>
+        <span data-status>Ready</span>
+      </div>
+      <div class="status-pill" data-status-pill>Pairing</div>
+    </section>
+
+    <section class="hud stats-strip">
+      <div><span>Peer</span><strong data-peer-state>new</strong></div>
+      <div><span>ICE</span><strong data-ice-state>new</strong></div>
+      <div><span>RTT</span><strong data-rtt>0 ms</strong></div>
+      <div><span>Frames</span><strong data-frames>0</strong></div>
+      <div><span>Data</span><strong data-video-rate>0 Mb</strong></div>
+      <div><span>Audio</span><strong data-audio-buffer>0 ms</strong></div>
+      <div><span>Drops</span><strong data-drops>0</strong></div>
+      <div><span>IDR</span><strong data-keyframes>0</strong></div>
+    </section>
+
+    <div class="center-message" data-empty>
+      <strong>Waiting for broadcast</strong>
+      <span>Start the browser peer, then start SwiftCast from the iOS broadcast picker.</span>
+    </div>
+
+    <div class="center-message warning" data-unsupported hidden>
+      <strong>Chrome with WebCodecs is required.</strong>
+      <span>SwiftCast decodes raw H.264 on canvas and intentionally avoids HTML5 video buffering.</span>
+    </div>
+
+    <aside class="drawer" data-drawer>
+      <div class="drawer-header">
         <div>
           <h1>SwiftCast</h1>
-          <p>WebCodecs gaming mirror</p>
+          <p>Canvas-first gaming mirror</p>
         </div>
+        <button data-close aria-label="Close controls">Close</button>
       </div>
 
       <section class="panel status-panel">
-        <div class="status-dot" data-status-dot></div>
         <div>
-          <strong data-status>Ready</strong>
-          <span data-pair>Pair code loading</span>
+          <span>Pair code</span>
+          <strong data-pair>Loading</strong>
         </div>
+        <small data-mode>Local or tunnel</small>
       </section>
 
-      <section class="panel controls">
-        <button class="primary" data-start>Start browser peer</button>
+      <section class="panel action-grid">
+        <button class="primary" data-start>Start peer</button>
         <button data-audio>Enable audio</button>
-        <button data-keyframe>Request keyframe</button>
+        <button data-keyframe>Keyframe</button>
+        <button data-fullscreen>Fullscreen</button>
       </section>
 
       <section class="panel">
-        <h2>Gaming Stream</h2>
-        <label>Resolution <select data-preset>
-          <option value="gaming">1280x720 / 30 fps</option>
-          <option value="hotspot">960x540 / 30 fps</option>
-          <option value="battery">854x480 / 20 fps</option>
+        <h2>Viewer</h2>
+        <label class="check"><input data-show-stats type="checkbox" checked /> Show stats</label>
+        <label>Canvas fit <select data-fit>
+          <option value="contain">Contain</option>
+          <option value="cover">Fill screen</option>
         </select></label>
-        <label>Min bitrate <input data-min-bitrate type="range" min="500" max="8000" step="250" /></label>
-        <label>Max bitrate <input data-max-bitrate type="range" min="1000" max="12000" step="250" /></label>
-        <label class="check"><input data-dynamic type="checkbox" /> Dynamic bitrate</label>
-        <label class="check"><input data-temporal type="checkbox" /> Temporal compression</label>
-        <label class="check"><input data-pframes type="checkbox" /> P-frames</label>
-        <label>Keyframe interval <input data-keyint type="number" min="250" max="5000" step="250" /></label>
+        <label>Audio sync offset <input data-sync type="number" min="-250" max="250" step="5" /></label>
       </section>
 
       <section class="panel">
-        <h2>ROI</h2>
-        <label class="check"><input data-roi-enabled type="checkbox" /> Enable ROI</label>
-        <label>Mode <select data-roi-mode>
+        <h2>Live Stream Requests</h2>
+        <label>ROI mode <select data-roi-mode>
           <option value="off">Off</option>
           <option value="manual">Manual</option>
           <option value="motion">Motion</option>
           <option value="touch">Touch centered</option>
           <option value="center">Center weighted</option>
         </select></label>
+        <label class="check"><input data-roi-enabled type="checkbox" /> Enable ROI overlay</label>
+        <label class="check"><input data-gaming type="checkbox" checked /> Gaming latency mode</label>
       </section>
 
-      <section class="panel">
-        <h2>Audio</h2>
-        <label class="check"><input data-app-audio type="checkbox" /> App audio</label>
-        <label class="check"><input data-mic-audio type="checkbox" /> Mic</label>
-        <label>Sync offset <input data-sync type="number" min="-250" max="250" step="5" /></label>
+      <section class="panel subtle">
+        <h2>Capture Settings Live In iOS</h2>
+        <p>Resolution, FPS, bitrate range, temporal compression, P-frames, audio sources, gains, and encoder limits are controlled in the SwiftCast iOS app so the broadcast extension can load them before capture starts.</p>
       </section>
     </aside>
-
-    <section class="stage">
-      <div class="stage-topbar">
-        <div>
-          <strong>Canvas decoder</strong>
-          <span>No video tag. No media track.</span>
-        </div>
-        <div class="badges">
-          <span>Chrome</span>
-          <span>WebRTC DC</span>
-          <span>H.264 Annex B</span>
-        </div>
-      </div>
-      <div class="viewer">
-        <canvas data-canvas></canvas>
-        <div class="unsupported" data-unsupported hidden>
-          <strong>Chrome with WebCodecs is required.</strong>
-          <span>SwiftCast intentionally avoids HTML5 video buffering and decodes raw H.264 directly to canvas.</span>
-        </div>
-        <div class="empty" data-empty>
-          <strong>Waiting for iPhone broadcast</strong>
-          <span>Start the browser peer, then start SwiftCast from the iOS screen broadcast picker.</span>
-        </div>
-      </div>
-      <div class="stats">
-        <div><span>Peer</span><strong data-peer-state>new</strong></div>
-        <div><span>ICE</span><strong data-ice-state>new</strong></div>
-        <div><span>RTT</span><strong data-rtt>0 ms</strong></div>
-        <div><span>Frames</span><strong data-frames>0</strong></div>
-        <div><span>Video</span><strong data-video-rate>0 Mbps</strong></div>
-        <div><span>Audio buffer</span><strong data-audio-buffer>0 ms</strong></div>
-        <div><span>Drops</span><strong data-drops>0</strong></div>
-        <div><span>Keyframes</span><strong data-keyframes>0</strong></div>
-      </div>
-    </section>
   </main>
 `;
 
@@ -123,72 +116,53 @@ const signaling = new SignalingClient();
 const audio = new LowLatencyAudio();
 const canvas = $<HTMLCanvasElement>("[data-canvas]");
 const statusText = $<HTMLElement>("[data-status]");
-const statusDot = $<HTMLElement>("[data-status-dot]");
+const statusPill = $<HTMLElement>("[data-status-pill]");
 const pairText = $<HTMLElement>("[data-pair]");
+const modeText = $<HTMLElement>("[data-mode]");
 const empty = $<HTMLElement>("[data-empty]");
 const unsupported = $<HTMLElement>("[data-unsupported]");
+const drawer = $<HTMLElement>("[data-drawer]");
+const statsStrip = $<HTMLElement>("[data-stats-strip], .stats-strip");
 
 const video = new CanvasVideoDecoder(canvas, () => peer?.requestKeyframe("decoder"));
 
 function setStatus(text: string, live = false): void {
   statusText.textContent = text;
-  statusDot.classList.toggle("live", live);
+  statusPill.textContent = live ? "Live" : "Pairing";
+  statusPill.classList.toggle("live", live);
 }
 
-function bindSettings(): void {
-  const preset = $<HTMLSelectElement>("[data-preset]");
-  const minBitrate = $<HTMLInputElement>("[data-min-bitrate]");
-  const maxBitrate = $<HTMLInputElement>("[data-max-bitrate]");
-  const dynamic = $<HTMLInputElement>("[data-dynamic]");
-  const temporal = $<HTMLInputElement>("[data-temporal]");
-  const pframes = $<HTMLInputElement>("[data-pframes]");
-  const keyint = $<HTMLInputElement>("[data-keyint]");
+function bindViewerSettings(): void {
+  const fit = $<HTMLSelectElement>("[data-fit]");
+  const showStats = $<HTMLInputElement>("[data-show-stats]");
+  const sync = $<HTMLInputElement>("[data-sync]");
   const roiEnabled = $<HTMLInputElement>("[data-roi-enabled]");
   const roiMode = $<HTMLSelectElement>("[data-roi-mode]");
-  const appAudio = $<HTMLInputElement>("[data-app-audio]");
-  const micAudio = $<HTMLInputElement>("[data-mic-audio]");
-  const sync = $<HTMLInputElement>("[data-sync]");
+  const gaming = $<HTMLInputElement>("[data-gaming]");
 
   const render = () => {
-    preset.value = settings.preset;
-    minBitrate.value = String(settings.minBitrateKbps);
-    maxBitrate.value = String(settings.maxBitrateKbps);
-    dynamic.checked = settings.dynamicBitrateEnabled;
-    temporal.checked = settings.temporalCompressionEnabled;
-    pframes.checked = settings.pFramesEnabled;
-    keyint.value = String(settings.keyframeIntervalMs);
+    sync.value = String(settings.audioSyncOffsetMs);
     roiEnabled.checked = settings.roiEnabled;
     roiMode.value = settings.roiMode;
-    appAudio.checked = settings.appAudioEnabled;
-    micAudio.checked = settings.micAudioEnabled;
-    sync.value = String(settings.audioSyncOffsetMs);
+    gaming.checked = settings.latencyMode === "gaming";
   };
 
   const update = () => {
+    canvas.style.objectFit = fit.value;
+    statsStrip.hidden = !showStats.checked;
     settings = {
       ...settings,
-      preset: preset.value as SwiftCastSettings["preset"],
-      minBitrateKbps: Number(minBitrate.value),
-      maxBitrateKbps: Number(maxBitrate.value),
-      dynamicBitrateEnabled: dynamic.checked,
-      temporalCompressionEnabled: temporal.checked,
-      pFramesEnabled: pframes.checked,
-      keyframeIntervalMs: Number(keyint.value),
+      audioSyncOffsetMs: Number(sync.value),
       roiEnabled: roiEnabled.checked,
       roiMode: roiMode.value as SwiftCastSettings["roiMode"],
-      appAudioEnabled: appAudio.checked,
-      micAudioEnabled: micAudio.checked,
-      audioSyncOffsetMs: Number(sync.value)
+      latencyMode: gaming.checked ? "gaming" : "balanced"
     };
-
-    if (settings.preset === "hotspot") Object.assign(settings, { width: 960, height: 540, fps: 30 });
-    if (settings.preset === "battery") Object.assign(settings, { width: 854, height: 480, fps: 20 });
-    if (settings.preset === "gaming") Object.assign(settings, { width: 1280, height: 720, fps: 30 });
     peer?.sendSettings(settings);
   };
 
   app.querySelectorAll("input, select").forEach((element) => element.addEventListener("input", update));
   render();
+  update();
 }
 
 async function boot(): Promise<void> {
@@ -197,16 +171,21 @@ async function boot(): Promise<void> {
   }
   const session = await signaling.getSession();
   settings = { ...defaultSettings, ...session.settings };
-  pairText.textContent = `Pair code ${session.pairCode}`;
-  bindSettings();
+  pairText.textContent = session.pairCode;
+  modeText.textContent = session.mode === "tunnel" ? "Railway tunnel signaling" : "Local app signaling";
+  bindViewerSettings();
   setStatus("Ready");
 }
+
+$<HTMLButtonElement>("[data-menu]").addEventListener("click", () => drawer.classList.add("open"));
+$<HTMLButtonElement>("[data-close]").addEventListener("click", () => drawer.classList.remove("open"));
 
 $<HTMLButtonElement>("[data-start]").addEventListener("click", async () => {
   peer?.stop();
   peer = new SwiftCastPeer(signaling, video, audio, (status) => setStatus(status, status.includes("connected")));
   await peer.start(settings);
   empty.hidden = true;
+  drawer.classList.remove("open");
 });
 
 $<HTMLButtonElement>("[data-audio]").addEventListener("click", async () => {
@@ -216,6 +195,10 @@ $<HTMLButtonElement>("[data-audio]").addEventListener("click", async () => {
 
 $<HTMLButtonElement>("[data-keyframe]").addEventListener("click", () => {
   peer?.requestKeyframe("user");
+});
+
+$<HTMLButtonElement>("[data-fullscreen]").addEventListener("click", () => {
+  void document.documentElement.requestFullscreen?.();
 });
 
 window.setInterval(() => {

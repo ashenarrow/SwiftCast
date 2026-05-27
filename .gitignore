@@ -1,5 +1,8 @@
 web/node_modules/
 web/dist/
+tunnel/node_modules/
+tunnel/dist/
+tunnel/public/
 ios/Pods/
 ios/SwiftCast.xcodeproj/
 ios/SwiftCast.xcworkspace/
@@ -7,4 +10,3 @@ ios/Podfile.lock
 DerivedData/
 *.xcuserstate
 *.xcuserdata/
-
