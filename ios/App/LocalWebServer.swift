@@ -10,6 +10,7 @@ final class LocalWebServer {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private var scheme = "http"
+    private var advertisedHost = "127.0.0.1"
 
     init(store: AppGroupStore) {
         self.store = store
@@ -17,7 +18,7 @@ final class LocalWebServer {
 
     func start() async throws -> URL {
         if let listener, let port = listener.port {
-            return URL(string: "\(scheme)://\(Self.lanAddress()):\(port.rawValue)")!
+            return URL(string: "\(scheme)://\(advertisedHost):\(port.rawValue)")!
         }
 
         let parameters: NWParameters
@@ -29,18 +30,56 @@ final class LocalWebServer {
             scheme = "http"
         }
 
-        let listener = try NWListener(using: parameters, on: 0)
+        advertisedHost = Self.lanAddress()
+        let listener = try await startListener(using: parameters)
         self.listener = listener
+        return URL(string: "\(scheme)://\(advertisedHost):\(listener.port!.rawValue)")!
+    }
+
+    private func startListener(using parameters: NWParameters) async throws -> NWListener {
+        let safePorts: [UInt16] = [8443, 9443, 10443, 49152, 49153, 49154]
+        var lastError: Error?
+
+        for port in safePorts {
+            do {
+                return try await startListener(using: parameters, port: port)
+            } catch {
+                lastError = error
+            }
+        }
+
+        throw lastError ?? NWError.posix(.EADDRINUSE)
+    }
+
+    private func startListener(using parameters: NWParameters, port: UInt16) async throws -> NWListener {
+        let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port)!)
         listener.newConnectionHandler = { [weak self] connection in
             self?.handle(connection)
         }
-        listener.start(queue: queue)
 
-        while listener.port == nil {
-            try await Task.sleep(nanoseconds: 20_000_000)
+        return try await withCheckedThrowingContinuation { continuation in
+            var didResume = false
+            listener.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    guard !didResume else { return }
+                    didResume = true
+                    continuation.resume(returning: listener)
+                case .failed(let error):
+                    guard !didResume else { return }
+                    didResume = true
+                    listener.cancel()
+                    continuation.resume(throwing: error)
+                case .cancelled:
+                    guard !didResume else { return }
+                    didResume = true
+                    continuation.resume(throwing: NWError.posix(.ECANCELED))
+                default:
+                    break
+                }
+            }
+            listener.start(queue: queue)
         }
-
-        return URL(string: "\(scheme)://\(Self.lanAddress()):\(listener.port!.rawValue)")!
     }
 
     private func handle(_ connection: NWConnection) {
@@ -105,7 +144,7 @@ final class LocalWebServer {
     }
 
     private func serveStatic(path: String) -> Data {
-        guard let root = Bundle.main.resourceURL?.appendingPathComponent("dist", isDirectory: true) else {
+        guard let root = Self.webClientRoot() else {
             return HTTPResponse.notFound("Web client is not bundled").data
         }
         let fileURL = root.appendingPathComponent(path)
@@ -133,6 +172,18 @@ final class LocalWebServer {
         if path.hasSuffix(".html") { return "text/html; charset=utf-8" }
         if path.hasSuffix(".svg") { return "image/svg+xml" }
         return "application/octet-stream"
+    }
+
+    private static func webClientRoot() -> URL? {
+        guard let resourceURL = Bundle.main.resourceURL else { return nil }
+        let candidates = [
+            resourceURL.appendingPathComponent("WebClient", isDirectory: true),
+            resourceURL.appendingPathComponent("dist", isDirectory: true),
+            resourceURL
+        ]
+        return candidates.first { candidate in
+            FileManager.default.fileExists(atPath: candidate.appendingPathComponent("index.html").path)
+        }
     }
 
     private static func localTLSOptions() -> NWProtocolTLS.Options? {

@@ -21,10 +21,6 @@ targets:
     sources:
       - App
       - Shared
-      - path: ../web/dist
-        optional: true
-        type: folder
-        buildPhase: resources
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.ashenarrow.swiftcast
       PRODUCT_NAME: SwiftCast
@@ -40,6 +36,10 @@ targets:
           cd "$SRCROOT/../web"
           if [ ! -d node_modules ]; then npm install; fi
           npm run build
+          WEB_DEST="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/WebClient"
+          rm -rf "$WEB_DEST"
+          mkdir -p "$WEB_DEST"
+          ditto "$SRCROOT/../web/dist" "$WEB_DEST"
   SwiftCastBroadcast:
     type: app-extension
     platform: iOS
