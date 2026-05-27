@@ -1,5 +1,6 @@
 import ReplayKit
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @EnvironmentObject private var model: SwiftCastModel
@@ -88,7 +89,7 @@ struct ContentView: View {
             Text("Tap the broadcast button below and choose SwiftCast Broadcast. This is the system screen broadcast prompt.")
                 .foregroundStyle(.secondary)
             BroadcastPickerButton()
-                .frame(width: 112, height: 112)
+                .frame(height: 56)
                 .padding(.vertical, 4)
         }
         .cardStyle()
@@ -188,16 +189,74 @@ struct ContentView: View {
 }
 
 struct BroadcastPickerButton: UIViewRepresentable {
-    func makeUIView(context: Context) -> RPSystemBroadcastPickerView {
-        let picker = RPSystemBroadcastPickerView()
-        picker.preferredExtension = Bundle.main.bundleIdentifier.map { "\($0).broadcast" } ?? "com.ashenarrow.swiftcast.broadcast"
-        picker.showsMicrophoneButton = true
-        picker.tintColor = .systemGreen
-        picker.accessibilityLabel = "Start SwiftCast Broadcast"
-        return picker
+    func makeUIView(context: Context) -> BroadcastPickerContainer {
+        BroadcastPickerContainer()
     }
 
-    func updateUIView(_ uiView: RPSystemBroadcastPickerView, context: Context) {}
+    func updateUIView(_ uiView: BroadcastPickerContainer, context: Context) {
+        uiView.updateExtensionIdentifier()
+    }
+}
+
+final class BroadcastPickerContainer: UIView {
+    private let picker = RPSystemBroadcastPickerView()
+    private let button = UIButton(type: .system)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setup()
+    }
+
+    func updateExtensionIdentifier() {
+        picker.preferredExtension = Bundle.main.bundleIdentifier.map { "\($0).broadcast" } ?? "com.ashenarrow.swiftcast.broadcast"
+    }
+
+    private func setup() {
+        updateExtensionIdentifier()
+        picker.showsMicrophoneButton = true
+        picker.alpha = 0.02
+        picker.translatesAutoresizingMaskIntoConstraints = false
+
+        var configuration = UIButton.Configuration.filled()
+        configuration.title = "Start Screen Broadcast"
+        configuration.image = UIImage(systemName: "record.circle")
+        configuration.imagePadding = 8
+        configuration.baseBackgroundColor = .systemGreen
+        configuration.baseForegroundColor = .white
+        configuration.cornerStyle = .medium
+
+        button.configuration = configuration
+        button.titleLabel?.font = .preferredFont(forTextStyle: .headline)
+        button.accessibilityLabel = "Start Screen Broadcast"
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.addTarget(self, action: #selector(openBroadcastPicker), for: .touchUpInside)
+
+        addSubview(button)
+        addSubview(picker)
+
+        NSLayoutConstraint.activate([
+            button.leadingAnchor.constraint(equalTo: leadingAnchor),
+            button.trailingAnchor.constraint(equalTo: trailingAnchor),
+            button.topAnchor.constraint(equalTo: topAnchor),
+            button.bottomAnchor.constraint(equalTo: bottomAnchor),
+            picker.centerXAnchor.constraint(equalTo: centerXAnchor),
+            picker.centerYAnchor.constraint(equalTo: centerYAnchor),
+            picker.widthAnchor.constraint(equalToConstant: 44),
+            picker.heightAnchor.constraint(equalToConstant: 44)
+        ])
+    }
+
+    @objc private func openBroadcastPicker() {
+        guard let pickerButton = picker.subviews.compactMap({ $0 as? UIButton }).first else {
+            return
+        }
+        pickerButton.sendActions(for: .touchUpInside)
+    }
 }
 
 private extension View {
