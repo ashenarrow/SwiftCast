@@ -1,13 +1,18 @@
 name: SwiftCast
 options:
-  bundleIdPrefix: com.swiftcast
+  bundleIdPrefix: com.ashenarrow.swiftcast
   deploymentTarget:
     iOS: "15.0"
 settings:
   base:
     SWIFT_VERSION: "5.9"
     IPHONEOS_DEPLOYMENT_TARGET: "15.0"
-    DEVELOPMENT_TEAM: YOUR_TEAM_ID
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+    SWIFTCAST_APP_GROUP: group.com.ashenarrow.swiftcast
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 packages: {}
 targets:
   SwiftCast:
@@ -21,7 +26,9 @@ targets:
         type: folder
         buildPhase: resources
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.swiftcast.app
+      PRODUCT_BUNDLE_IDENTIFIER: com.ashenarrow.swiftcast
+      PRODUCT_NAME: SwiftCast
+      INFOPLIST_KEY_CFBundleDisplayName: SwiftCast
       INFOPLIST_FILE: App/Info.plist
       CODE_SIGN_ENTITLEMENTS: App/SwiftCast.entitlements
     dependencies:
@@ -40,8 +47,9 @@ targets:
       - BroadcastExtension
       - Shared
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.swiftcast.app.broadcast
+      PRODUCT_BUNDLE_IDENTIFIER: com.ashenarrow.swiftcast.broadcast
+      PRODUCT_NAME: SwiftCastBroadcast
+      INFOPLIST_KEY_CFBundleDisplayName: SwiftCast Broadcast
       INFOPLIST_FILE: BroadcastExtension/Info.plist
       CODE_SIGN_ENTITLEMENTS: BroadcastExtension/SwiftCastBroadcast.entitlements
       APPLICATION_EXTENSION_API_ONLY: true
-

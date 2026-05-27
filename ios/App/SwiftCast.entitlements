@@ -4,8 +4,7 @@
 <dict>
   <key>com.apple.security.application-groups</key>
   <array>
-    <string>group.com.swiftcast.app</string>
+    <string>$(SWIFTCAST_APP_GROUP)</string>
   </array>
 </dict>
 </plist>
-

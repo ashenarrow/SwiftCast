@@ -2,7 +2,9 @@ import Foundation
 
 final class AppGroupStore {
     static let shared = AppGroupStore()
-    static let groupIdentifier = "group.com.swiftcast.app"
+    static var groupIdentifier: String {
+        Bundle.main.object(forInfoDictionaryKey: "SwiftCastAppGroup") as? String ?? "group.com.ashenarrow.swiftcast"
+    }
 
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
@@ -80,4 +82,3 @@ final class AppGroupStore {
         write(value, to: filename)
     }
 }
-

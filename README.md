@@ -50,10 +50,57 @@ open SwiftCast.xcworkspace
 Before running on a real device, update these values in `ios/project.yml`:
 
 - `DEVELOPMENT_TEAM`
-- App group identifiers under `CODE_SIGN_ENTITLEMENTS`
-- Bundle identifiers if needed
+- `PRODUCT_BUNDLE_IDENTIFIER` for `SwiftCast` and `SwiftCastBroadcast`
+- `SWIFTCAST_APP_GROUP`
 
 ReplayKit Broadcast Upload Extensions cannot be properly validated in the iOS simulator.
+
+## Signed Sideload Build
+
+The uploaded CI IPA is unsigned and will not sideload. iOS requires a valid Apple signing team, provisioning profiles, and matching entitlements. For SwiftCast, the host app and Broadcast Upload Extension must use explicit App IDs, and the App Group must exist in your Apple developer account.
+
+1. In Apple Developer, create these identifiers:
+
+- App ID: `com.ashenarrow.swiftcast`
+- App ID: `com.ashenarrow.swiftcast.broadcast`
+- App Group: `group.com.ashenarrow.swiftcast`
+
+2. In `ios/project.yml`, replace the bundle IDs/app group with your own reverse-DNS identifiers if needed, then set `DEVELOPMENT_TEAM` to your Apple Team ID.
+
+3. Also update `ios/ExportOptions.Development.plist` and replace `YOUR_TEAM_ID`.
+
+4. Build a signed development IPA on macOS:
+
+```bash
+cd web
+npm ci
+npm run build
+
+cd ../ios
+xcodegen generate
+pod install --repo-update
+
+xcodebuild \
+  -workspace SwiftCast.xcworkspace \
+  -scheme SwiftCast \
+  -configuration Release \
+  -sdk iphoneos \
+  -destination 'generic/platform=iOS' \
+  -archivePath build/SwiftCast.xcarchive \
+  -allowProvisioningUpdates \
+  DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+  SWIFTCAST_APP_GROUP=group.com.ashenarrow.swiftcast \
+  archive
+
+xcodebuild \
+  -exportArchive \
+  -archivePath build/SwiftCast.xcarchive \
+  -exportPath build/export \
+  -exportOptionsPlist ExportOptions.Development.plist \
+  -allowProvisioningUpdates
+```
+
+The signed IPA will be in `ios/build/export`. If you use a free Apple account, App Groups and Broadcast Upload Extension provisioning may be limited; a paid Apple Developer account is the reliable path for this app.
 
 ## GitHub CI
 
