@@ -48,6 +48,16 @@ struct ContentView: View {
             Text("Pair code \(AppGroupStore.shared.pairCode)")
                 .font(.title3.monospacedDigit().bold())
 
+            Label(AppGroupStore.shared.diagnostics, systemImage: AppGroupStore.shared.isUsingAppGroup ? "checkmark.seal" : "exclamationmark.triangle")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppGroupStore.shared.isUsingAppGroup ? .green : .orange)
+
+            if !AppGroupStore.shared.isUsingAppGroup {
+                Text("This sideload build is missing the App Group entitlement. SwiftCast will use fallback pair code 000000 and default broadcast settings until signing is fixed.")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+
             Toggle("Use Railway tunnel", isOn: $model.connection.tunnelEnabled)
 
             TextField("Tunnel URL", text: $model.connection.tunnelBaseURL)
@@ -97,6 +107,12 @@ struct ContentView: View {
             Label(model.broadcastStatus, systemImage: model.broadcastStatus == "Broadcasting" ? "dot.radiowaves.left.and.right" : "record.circle")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(model.broadcastStatus == "Broadcasting" ? .green : .secondary)
+            if !model.tunnelStatus.isEmpty {
+                Text("Tunnel: \(model.tunnelStatus)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
             BroadcastPickerButton()
                 .frame(height: 56)
                 .padding(.vertical, 4)

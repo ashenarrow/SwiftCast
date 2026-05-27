@@ -20,6 +20,7 @@ final class SwiftCastModel: ObservableObject {
     @Published var serverURL: URL?
     @Published var serverStatus = "Local server idle"
     @Published var broadcastStatus = AppGroupStore.shared.broadcastStatus
+    @Published var tunnelStatus = ""
     @Published var settings = AppGroupStore.shared.settings {
         didSet { AppGroupStore.shared.settings = settings }
     }
@@ -56,5 +57,36 @@ final class SwiftCastModel: ObservableObject {
 
     func refreshBroadcastStatus() {
         broadcastStatus = AppGroupStore.shared.broadcastStatus
+        Task { await refreshTunnelStatus() }
+    }
+
+    private func refreshTunnelStatus() async {
+        guard connection.tunnelEnabled,
+              var components = URLComponents(string: connection.tunnelBaseURL) else {
+            return
+        }
+        components.path = "/api/rooms/\(AppGroupStore.shared.pairCode)/status"
+        guard let url = components.url else { return }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let http = response as? HTTPURLResponse,
+                  (200..<300).contains(http.statusCode),
+                  let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return
+            }
+            let phase = object["phase"] as? String ?? "unknown"
+            let hasOffer = object["hasOffer"] as? Bool == true ? "offer" : "no offer"
+            let hasAnswer = object["hasAnswer"] as? Bool == true ? "answer" : "no answer"
+            let browserIce = object["browserIce"] as? Int ?? 0
+            let broadcastIce = object["broadcastIce"] as? Int ?? 0
+            await MainActor.run {
+                tunnelStatus = "\(phase) | \(hasOffer) | \(hasAnswer) | browser ICE \(browserIce) | broadcast ICE \(broadcastIce)"
+            }
+        } catch {
+            await MainActor.run {
+                tunnelStatus = "Tunnel status unavailable"
+            }
+        }
     }
 }

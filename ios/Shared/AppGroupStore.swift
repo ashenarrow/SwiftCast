@@ -9,17 +9,23 @@ final class AppGroupStore {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private let rootURL: URL
+    let isUsingAppGroup: Bool
 
     init() {
         if let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.groupIdentifier) {
             rootURL = url
+            isUsingAppGroup = true
         } else {
             rootURL = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftCastAppGroup", isDirectory: true)
+            isUsingAppGroup = false
         }
         try? FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
     }
 
     var pairCode: String {
+        guard isUsingAppGroup else {
+            return "000000"
+        }
         if let code: String = read("pair-code.json") {
             return code
         }
@@ -61,6 +67,11 @@ final class AppGroupStore {
     var broadcastStatus: String {
         get { read("broadcast-status.json") ?? "Idle" }
         set { write(newValue, to: "broadcast-status.json") }
+    }
+
+    var diagnostics: String {
+        let mode = isUsingAppGroup ? "App Group OK" : "App Group unavailable"
+        return "\(mode): \(Self.groupIdentifier)"
     }
 
     func resetSession() {

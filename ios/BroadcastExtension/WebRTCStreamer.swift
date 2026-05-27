@@ -12,6 +12,7 @@ final class WebRTCStreamer: NSObject {
     private var browserIceCursor = 0
     private var keyframeRequested = true
     private var remoteSignaling: RemoteSignalingClient?
+    private var isStopped = false
     private let queue = DispatchQueue(label: "swiftcast.webrtc.streamer")
 
     init(store: AppGroupStore) {
@@ -21,6 +22,7 @@ final class WebRTCStreamer: NSObject {
     }
 
     func start() {
+        isStopped = false
         store.broadcastStatus = "Waiting for browser"
         queue.async {
             self.waitForOfferAndAnswer()
@@ -28,6 +30,7 @@ final class WebRTCStreamer: NSObject {
     }
 
     func stop() {
+        isStopped = true
         store.broadcastStatus = "Idle"
         remoteSignaling?.postStatus("idle")
         icePollTimer?.cancel()
@@ -77,19 +80,16 @@ final class WebRTCStreamer: NSObject {
     private func waitForOfferAndAnswer() {
         remoteSignaling = RemoteSignalingClient(connection: store.connection, pairCode: store.pairCode)
         remoteSignaling?.postSettings(store.settings)
-        remoteSignaling?.postStatus("waiting-for-offer", detail: "Broadcast extension is running")
+        remoteSignaling?.postStatus("waiting-for-offer", detail: "\(store.diagnostics), pair \(store.pairCode)")
 
-        let deadline = Date().addingTimeInterval(20)
         var offerJSON: String?
-        while Date() < deadline {
+        while !isStopped && peerConnection == nil {
             offerJSON = remoteSignaling?.fetchOffer() ?? store.offer
             if offerJSON != nil { break }
-            Thread.sleep(forTimeInterval: 0.1)
+            Thread.sleep(forTimeInterval: 0.25)
         }
         guard let offerJSON,
               let offer = RTCSessionDescription(json: offerJSON) else {
-            store.broadcastStatus = "No browser offer"
-            remoteSignaling?.postStatus("no-offer", detail: "Open the viewer and press Start peer first")
             return
         }
         store.broadcastStatus = "Browser offer received"
